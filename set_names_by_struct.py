@@ -1,78 +1,78 @@
-from idaapi import *
-from search_result import *
-import idc
+import idaapi
 
 def set_list_of_objects_names(start, name_format, num_of_elemens, struct, obj_field, objAlign, name_field):
-    print(start, struct, obj_field, name_field, num_of_elemens)
-    size_of_element = get_struc_size(struct[1])
-    obj_offset = get_member_by_name(get_struc(struct[1]), obj_field).soff
-    name_offset = get_member_by_name(get_struc(struct[1]), name_field).soff
+    #print(start, struct, obj_field, name_field, num_of_elemens)
+    size_of_element = idaapi.get_struc_size(struct[1])
+    obj_offset = idaapi.get_member_by_name(idaapi.get_struc(struct[1]), obj_field).soff
+    name_offset = idaapi.get_member_by_name(idaapi.get_struc(struct[1]), name_field).soff
     name_string_or_pointer = False
-    if(is_strlit(get_member_by_name(get_struc(struct[1]), name_field).flag)):
+    if(idaapi.is_strlit(idaapi.get_member_by_name(idaapi.get_struc(struct[1]), name_field).flag)):
         name_string_or_pointer = True
     
-    
     for i in range(start, start+num_of_elemens*size_of_element, size_of_element):
-        obj_addr = get_dword(i+obj_offset)
+        obj_addr = idaapi.get_dword(i+obj_offset)
         obj_addr = obj_addr & ~(objAlign - 1)
         if(obj_addr == 0):
             continue
         if(name_string_or_pointer): #string
-            name = get_strlit_contents(i+name_offset, -1,0,0)
+            name = idaapi.get_strlit_contents(i+name_offset, -1,0,0)
         else:
-            name = get_strlit_contents(get_dword(i+name_offset), -1,0,0)
-        name = name.decode()
-        print("addr %08x: name %s" % (obj_addr, name_format%name))
-        if(obj_addr and len(name) >= 2):
-            set_name(obj_addr, name_format%name)
+            name = idaapi.get_strlit_contents(idaapi.get_dword(i+name_offset), -1,0,0)
+        try:
+            name = name.decode()
+            #print("addr %08x: name %s" % (obj_addr, name_format%name))
+            if(obj_addr and len(name) >= 2):
+                idaapi.set_name(obj_addr, name_format%name)
+        except:
+            print("could not decode name")
+            break
 
 
 
-class IdaNameFromStructForm(Form):
-    """ Ida Rop Search input form """
+class IdaNameFromStructForm(idaapi.Form):
+    """ Ida apply names from structs form """
 
     def __init__(self, select_list = None):
-
         self.select_list = select_list
         self.segments = [0,1]
         self.ok = False
         self.struct_list = [s for s in Structs()]
         ea = here()
-        ti = opinfo_t()
-        f = get_flags(ea)
-        if get_opinfo(ti, ea, 0, f):
-            self.current_struct_list_name = get_struc_name(ti.tid)
+        ti = idaapi.opinfo_t()
+        f = idaapi.get_flags(ea)
+        if idaapi.get_opinfo(ti, ea, 0, f):
+            self.current_struct_list_name = idaapi.get_struc_name(ti.tid)
             self.current_struct_list_idx = list(map(lambda s:s[2] == self.current_struct_list_name, self.struct_list)).index(True)
             self.name_idx = 0
-            if(get_member_by_name(get_struc(ti.tid), "name")):
+            if(idaapi.get_member_by_name(idaapi.get_struc(ti.tid), "name")):
                 self.name_idx = list(map(lambda s:s[1] == "name", StructMembers(ti.tid))).index(True)
             
             self.obj_idx=0
-            if(get_member_by_name(get_struc(ti.tid), "obj")):
+            if(idaapi.get_member_by_name(idaapi.get_struc(ti.tid), "obj")):
                 self.obj_idx = list(map(lambda s:s[1] == "obj", StructMembers(ti.tid))).index(True)
          
         else:
             self.current_struct_list_idx = 0
-        Form.__init__(self, 
-r"""BUTTON YES* set
-binary search with mask     
+        idaapi.Form.__init__(self, 
+r"""BUTTON YES* Set Names
+Apply name from struct     
 {FormChangeCb}
-<Address              :{address}>
-<name format          :{nameFormat}>
-<number of elements   :{numOfElems}>
-<struct type chooser  :{structChooser}>
-<object field chooser :{objFieldChooser}>
-<namn field chooser   :{nameFieldChooser}>
+<Address            :{address}>
+<Name format        :{nameFormat}>
+<Number of elements :{numOfElems}>
+<Struct type        :{structChooser}>
+<Object field       :{objFieldChooser}>
+<namn field         :{nameFieldChooser}>
 Object Alignment     <Byte :{rByte}><Word :{rWord}><Dword :{rDWord}>{objAlign}>
 """, {
-                'address'   : Form.NumericInput(),
-                'nameFormat'   : Form.StringInput(),
-                'numOfElems'   : Form.NumericInput(),
-                'structChooser'   : Form.DropdownListControl(readonly=True, selval=self.current_struct_list_idx),
-                'objFieldChooser'   : Form.DropdownListControl(readonly=True, selval=self.obj_idx),
-                'nameFieldChooser'   : Form.DropdownListControl(readonly=True, selval=self.name_idx),
-                'objAlign' : Form.RadGroupControl(("rByte", "rWord", "rDWord")),
-                'FormChangeCb'    : Form.FormChangeCb(self.OnFormChange),
+                'address'   : idaapi.Form.NumericInput(),
+                'nameFormat'   : idaapi.Form.StringInput(),
+                'numOfElems'   : idaapi.Form.NumericInput(),
+                'structChooser'   : idaapi.Form.DropdownListControl(readonly=True, selval=self.current_struct_list_idx),
+                'objFieldChooser'   : idaapi.Form.DropdownListControl(readonly=True, selval=self.obj_idx),
+                'nameFieldChooser'   : idaapi.Form.DropdownListControl(readonly=True, selval=self.name_idx),
+                'objAlign' : idaapi.Form.RadGroupControl(("rByte", "rWord", "rDWord")),
+                'FormChangeCb'    : idaapi.Form.FormChangeCb(self.OnFormChange),
             })
         
         self.Compile()
@@ -104,9 +104,6 @@ Object Alignment     <Byte :{rByte}><Word :{rWord}><Dword :{rDWord}>{objAlign}>
             self.nameFieldChooser.set_items(fields)
             self.RefreshField(self.objFieldChooser)
             self.RefreshField(self.nameFieldChooser)
-
-        elif(fid == self.objFieldChooser.id):
-            print(self.objFieldChooser.selval)
         # Form OK pressed
         elif fid == -2:
             self.ok = True
